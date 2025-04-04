@@ -157,13 +157,13 @@ L.countrySelect = function(options){
 		                    .then(response => response.text())
 		                    .then(data => {
 		                        console.log("Response from server:", data);
-
+								let countries = JSON.parse(data);
 		                        // Find the clicked country by name and change its color to yellow
 		                        for (var code in countryLayers) {
 		                            //console.log("Name -->", countryLayers[code].feature.properties.name);
 		                            console.log("Code -->", code);
-		                            if (code === data) {
-		                               alert(data);
+		                            if (countries.includes(code)) {
+		                               //alert(data);
 		                                countryLayers[code].setStyle({
 		                                    color: 'yellow',
 		                                    fillColor: 'yellow',

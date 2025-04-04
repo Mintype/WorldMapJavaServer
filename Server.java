@@ -17,8 +17,10 @@ import java.nio.charset.StandardCharsets;
 public class Server {
     private HttpServer server;
     private int port; // Port on which the server will listen
+    private MapInteraction interactor;
 
     public Server(int port) {
+		interactor = new MapInteraction();
         this.port = port;
         try {
             server = HttpServer.create(new InetSocketAddress(port), 0);
@@ -114,10 +116,11 @@ public class Server {
 
 								//ObjectMapper objectMapper = new ObjectMapper();
             		//String jsonResponse = objectMapper.writeValueAsString(countryColors);
-
-								String jsonResponse = country;
+					ArrayList<String> countries = interactor.click(country);
+					StringJoiner sj = new StringJoiner("\",\"", "[\"", "\"]");
+					for (String c : countries) sj.add(c);
 		            // Respond with the same country received (or modify as needed)
-		            byte[] responseBytes = jsonResponse.getBytes(StandardCharsets.UTF_8);
+		            byte[] responseBytes = sj.toString().getBytes(StandardCharsets.UTF_8);
 		            exchange.sendResponseHeaders(200, responseBytes.length);
 
 		            try (OutputStream os = exchange.getResponseBody()) {
