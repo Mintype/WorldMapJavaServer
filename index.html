@@ -24,6 +24,33 @@
         height: 100%;
         width: 100%;
     }
+	form {
+		position: absolute;
+		bottom: 15px;
+		left: 15px;
+		z-index: 1000;
+		background-color: white;
+		padding: 10px;
+		border-radius: 5px;
+		box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+		font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+	}
+	#submitBtn {
+		background-color: #4CAF50; /* Green */
+		border: none;
+		color: white;
+		text-align: center;
+		text-decoration: none;
+		display: inline-block;
+		font-size: 16px;
+		cursor: pointer;
+		border-radius: 5px;
+		font-size: 15px;
+		padding: 5px;
+	}
+	#submitBtn:hover {
+		background-color: #45a049; /* Darker green on hover */
+	}
 </style>
 
 <script>
@@ -111,14 +138,12 @@ L.countrySelect = function(options){
         var countries = countryClicker.getCountries();
 
 
-        // Store previously clicked country to reset its style later.
-        var previouslyClickedCountry = null;
-
         // This makes each country clickable and logs the country name to the console when clicked.
         // Also adds the layer of each country to the map.
 
         var countryLayers = {};
 		var previouslyClickedCountry = null; // Store reference to previously clicked country
+		var previousFormedCountries = []; // Store reference to previously formed countries if needed
 
 		for (var countryCode in countries) {
 		    if (countries.hasOwnProperty(countryCode)) {
@@ -183,7 +208,8 @@ L.countrySelect = function(options){
 		                fillColor: '#3388ff',
 		                fillOpacity: 0.5
 		            }
-		        }).bindPopup('Country: ' + countryName);
+		        })
+		        //.bindPopup('Country: ' + countryName);
 
 		        countryLayers[countryCode] = country;
 		        map.addLayer(country);
@@ -218,10 +244,83 @@ L.countrySelect = function(options){
         // 	},
         // 	style: {color: 'blue', fillColor: 'blue', fillOpacity: 0.5}
         // }).bindPopup('Country: ' + afghanistan.properties.name).addTo(map); // Bind a popup with the country name to each country layer
+
+		// Get the form element
+		var form = document.getElementById('country-form');
+		
+		// Add an event listener to handle form submission
+		form.addEventListener('submit', function(event) {
+			// Prevent the default form submission behavior
+			event.preventDefault();
+			
+			// Get the values of the input fields
+			var country1Name = document.getElementById('country1-name').value;
+			var country2Name = document.getElementById('country2-name').value;
+			
+			// Create data object
+			var data = {
+				country1: country1Name,
+				country2: country2Name
+			};
+			
+			// Send data to the server using fetch
+			fetch('/api', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify(data)
+			})
+			.then(response => response.json())
+			.then(hashmap => {
+				// Process the returned hashmap
+				console.log('Received hashmap:', hashmap);
+
+				// Clear previous formed countries if any
+				if (previousFormedCountries.length > 0) {
+					previousFormedCountries.forEach(function(layer) {
+						layer.setStyle({
+							color: '#3388ff', // Reset to original color
+							fillColor: '#3388ff',
+							fillOpacity: 0.5
+						});
+					});
+					previousFormedCountries = []; // Clear the array
+				}
+
+				// displayResults(hashmap);
+				for (var country in hashmap) {
+					console.log( "Country: " + country + ", Color: " + hashmap[country]);
+					if (countryLayers.hasOwnProperty(country)) {
+						console.log("Updating color for country code: " + country + " to " + hashmap[country]);
+						countryLayers[country].setStyle({
+							color: hashmap[country],
+							fillColor: hashmap[country],
+							fillOpacity: 0.7
+						});
+						previousFormedCountries.push(countryLayers[country]);
+					} else {
+						console.log("Country not found in layers: " + country);
+					}
+				}
+			})
+			.catch(error => {
+				console.error('Error:', error);
+			});
+		});
     }
 </script>
 
 <body onload="init()">
-<div id="map"></div>
+	<div id="map"></div>
+	<form id="country-form">
+		<label for="country1-name">Country1 Name:</label>
+		<input type="text" id="country1-name" name="country1-name" placeholder="Enter country1 name">
+
+		<label for="country2-name">Country2 Name:</label>
+		<input type="text" id="country2-name" name="country2-name" placeholder="Enter country2 name">
+
+		<input type="submit" id="submitBtn" value="Submit">
+	</form>
 </body>
 </html>
