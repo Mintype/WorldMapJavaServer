@@ -1,3 +1,6 @@
+// Version 0.4
+// Added methods clearCountryColors (to clear color map) and
+// printCountryColors to print current map (to call for debug purposes)
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
@@ -17,10 +20,9 @@ import java.nio.charset.StandardCharsets;
 public abstract class Server {
     private HttpServer server;
     private int port; // Port on which the server will listen
-    private MapInteraction interactor;
+    private Map<String,String> countryColors;
 
     public Server(int port) {
-		interactor = new MapInteraction();
         this.port = port;
         try {
             server = HttpServer.create(new InetSocketAddress(port), 0);
@@ -32,24 +34,46 @@ public abstract class Server {
         } catch (IOException e) {
             throw new RuntimeException("Failed to start HTTP server on port " + port, e);
         }
+        countryColors = new HashMap<String,String>();
+        countryColors.put("distance","0");
+
     }
 
     public Server() {
-        interactor = new MapInteraction();
-        this.port = 8000;
-        try {
-            server = HttpServer.create(new InetSocketAddress(port), 0);
-            // Define the routes
-            server.createContext("/", new DefaultRoute());         // Serves index.html
-            server.createContext("/static", new StaticFileHandler()); // Serves static files like JS
-            server.createContext("/country-clicked", new CountryClickedHandler()); // POST route that is received when user clicks a country.
-            server.createContext("/api", new APIHandler()); // POST route that is received when user clicks a country.
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to start HTTP server on port " + port, e);
-        }
+        this(8000);
     }
 
-    public abstract Map<String, String> getCountriesToColor(String country1, String country2);
+    public abstract void getInputCountries(String country1, String country2);
+
+    /*  This should return a all countries in the shortest path between country1 and country2
+        (as set to the Subclass) with each path having its colors
+    */
+    public abstract void getColorPath();
+
+    public abstract void handleClick(String country);
+
+    public void clearCountryColors(){
+        countryColors.clear();
+    }
+
+    public void printCountryColors(){
+        System.out.println(countryColors);
+    }
+
+    public void addCountryColor(String country, String color){
+        countryColors.put(country,color);
+    }
+
+    public boolean removeCountryColor(String country){
+        if (!countryColors.containsKey(country))
+            return false;
+        countryColors.remove(country);
+        return true;
+    }
+
+    public boolean isColored(String country){
+        return countryColors.containsKey(country);
+    }
 
     // Main route where the index.html is served
     static class DefaultRoute implements HttpHandler {
@@ -84,89 +108,44 @@ public abstract class Server {
         }
     }
 
-    /* POST request "country-clicked". Runs when the user clicks a country. It gets a country from the user. Returns a fixed list of countries to the user.
-    static class CountryClickedHandler implements HttpHandler {
+    public class CountryClickedHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
+
             if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
-                // Read the request body for the country name
-                InputStream is = exchange.getRequestBody();
-                String country = new BufferedReader(new InputStreamReader(is))
-                        .lines().collect(Collectors.joining("\n"));
+                // Read the request body (country name)
+                String country;
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(exchange.getRequestBody(), StandardCharsets.UTF_8))) {
+                    country = reader.lines().collect(Collectors.joining("\n"));
+                }
+
                 System.out.println("Country clicked: " + country);
+                handleClick(country); // Handled in student code
 
-                // Return a fixed list of country names
-                // This can be changed later for something else.
-                String response = "United States of America";
+                String jSONClickedMap = mapToJSON(countryColors);
+                System.out.println("ClickedMap: " + countryColors);
 
-                exchange.sendResponseHeaders(200, response.getBytes().length);
-                OutputStream os = exchange.getResponseBody();
-                os.write(response.getBytes());
-                os.close();
+                //System.out.println("jSONClickedMap -->"+jSONClickedMap);
+                // Respond with the same country received (or modify as needed)
+                byte[] responseBytes = jSONClickedMap.toString().getBytes(StandardCharsets.UTF_8);
+                exchange.sendResponseHeaders(200, responseBytes.length);
+
+                try (OutputStream os = exchange.getResponseBody()) {
+                    os.write(responseBytes);
+                } // Auto-closes OutputStream
+
             } else {
-                exchange.sendResponseHeaders(405, -1); // Method Not Allowed for non-POST
+                exchange.sendResponseHeaders(405, 0); // Method Not Allowed
+                exchange.getResponseBody().close();
             }
         }
     }
-    */
-
-
-
-
-		public class CountryClickedHandler implements HttpHandler {
-		    @Override
-		    public void handle(HttpExchange exchange) throws IOException {
-
-		        if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
-		            // Read the request body (country name)
-		            String country;
-		            try (BufferedReader reader = new BufferedReader(new InputStreamReader(exchange.getRequestBody(), StandardCharsets.UTF_8))) {
-		                country = reader.lines().collect(Collectors.joining("\n"));
-		            }
-
-		            System.out.println("Country clicked: " + country);
-
-		            Map<String, String> countryColors = new HashMap<>();
-                    countryColors.put("United States of America", "green");
-                    countryColors.put("Canada", "red");
-                    countryColors.put("Germany", "yellow");
-
-								//ObjectMapper objectMapper = new ObjectMapper();
-            		//String jsonResponse = objectMapper.writeValueAsString(countryColors);
-					ArrayList<String> countries = interactor.click(country);
-					StringJoiner sj = new StringJoiner("\",\"", "[\"", "\"]");
-					for (String c : countries) sj.add(c);
-		            // Respond with the same country received (or modify as needed)
-		            byte[] responseBytes = sj.toString().getBytes(StandardCharsets.UTF_8);
-		            exchange.sendResponseHeaders(200, responseBytes.length);
-
-		            try (OutputStream os = exchange.getResponseBody()) {
-		                os.write(responseBytes);
-		            } // Auto-closes OutputStream
-
-		        } else {
-		            exchange.sendResponseHeaders(405, 0); // Method Not Allowed
-		            exchange.getResponseBody().close();
-		        }
-		    }
-		}
 
     public class APIHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
 
             if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
-//                // Read the request body (country name)
-//                String country1, country2;
-//                String input;
-//                try (BufferedReader reader = new BufferedReader(new InputStreamReader(exchange.getRequestBody(), StandardCharsets.UTF_8))) {
-////                    country = reader.lines().collect(Collectors.joining("\n"));
-//                    input = reader.lines().collect(Collectors.joining("\n"));
-//                }
-//                String[] countries = input.substring(0, input.length() - 1).split("\"");
-//
-//                country1 = countries[3];
-//                country2 = countries[countries.length - 1];
 
                 // Read the request body
                 String input;
@@ -177,14 +156,15 @@ public abstract class Server {
                 HashMap<String, String> jsonObject = parseJSON(input);
                 String country1 = jsonObject.get("country1");
                 String country2 = jsonObject.get("country2");
+
                 System.out.println("country1: " + country1);
                 System.out.println("country2: " + country2);
+                getInputCountries(country1,country2);
 
                 // This is a KEY example on how you can give a hashmap of countries+color to the frontend to display!
-                Map<String, String> countryColors = getCountriesToColor(country1,country2);
-//                countryColors.put("United States of America", "green");
-//                countryColors.put("Canada", "red");
-//                countryColors.put("Germany", "yellow");
+                //Map<String, String> countryColors = getInputCountries(country1,country2);
+                //countryColors.putAll(getInputCountries(country1,country2));
+                System.out.println("Map to Post ==>"+countryColors);
 
                 // Convert HashMap to JSON string
                 String jsonResponse = mapToJSON(countryColors);
@@ -210,7 +190,6 @@ public abstract class Server {
         server.setExecutor(null);
         server.start();
         System.out.println("Server is running on port " + this.port);
-//        openURL("http://localhost:" + this.port + "/");
     }
 
     public void openURL() {
@@ -272,18 +251,22 @@ public abstract class Server {
         }
         return result;
     }
-}
-class MapInteraction {
-    //private ArrayList<String> total;
 
-    public MapInteraction() {
-        //total = new ArrayList<String>();
-    }
+    public static ArrayList<String> parseCountryList(String input) {
+        // Remove square brackets and quotes
+        input = input.trim();
+        if (input.startsWith("[") && input.endsWith("]")) {
+            input = input.substring(1, input.length() - 1); // remove [ and ]
+        }
 
-    public ArrayList<String> click(String country) {
-        //total.add(country);
-        ArrayList<String> countries = new ArrayList<>();
-        countries.add(country);
-        return countries;
+        // Split by comma, strip extra quotes and whitespace
+        String[] items = input.split(",");
+        ArrayList<String> result = new ArrayList<>();
+
+        for (String item : items) {
+            result.add(item.trim().replaceAll("^\"|\"$", "")); // remove surrounding quotes
+        }
+
+        return result;
     }
 }
