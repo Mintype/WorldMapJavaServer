@@ -125,8 +125,8 @@
                 resetAllCountryStyles();
 
                 for (var country in hashmap) {
-                    if (country === "distance") {
-                        document.getElementById("distance-display").textContent = hashmap[country] + ' countries away';
+                    if (country === "extra") {
+                        document.getElementById("distance-display").textContent = hashmap[country];
                         continue;
                     }
 
@@ -223,7 +223,24 @@
                 var country2Name = document.getElementById('country2-name').value;
                 sendFormSubmission(country1Name, country2Name);
             });
+
+			setInterval(() => {
+				fetch('/get-messages')
+					.then(response => response.json())
+					.then(data => {
+						console.log('Fetched messages:', data);
+						if (data.messages) {
+							const messages = data.messages.split(';;');
+							// messages.forEach(msg => console.log(msg)); // You can customize this
+							messages.forEach(msg => alert(msg)); // You can customize this
+						}
+					})
+					.catch(err => console.error('Failed to fetch messages:', err));
+			}, 1000); // Every x seconds
+
         }
+
+
 </script>
 
 <body onload="init()">

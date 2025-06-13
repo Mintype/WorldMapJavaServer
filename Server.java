@@ -22,6 +22,13 @@ public abstract class Server {
     private int port; // Port on which the server will listen
     private Map<String,String> countryColors;
 
+    private final List<String> messageQueue = Collections.synchronizedList(new ArrayList<>());
+
+    public void sendMessageToUser(String message) {
+        messageQueue.add(message);
+        System.out.println(message);
+    }
+
     public Server(int port) {
         this.port = port;
         try {
@@ -31,11 +38,13 @@ public abstract class Server {
             server.createContext("/static", new StaticFileHandler()); // Serves static files like JS
             server.createContext("/country-clicked", new CountryClickedHandler()); // POST route that is received when user clicks a country.
             server.createContext("/api", new APIHandler()); // POST route that is received when user clicks a country.
+            server.createContext("/get-messages", new MessageHandler());
+
         } catch (IOException e) {
             throw new RuntimeException("Failed to start HTTP server on port " + port, e);
         }
         countryColors = new HashMap<String,String>();
-        countryColors.put("distance","0");
+//        countryColors.put("distance","0");
 
     }
 
@@ -63,6 +72,9 @@ public abstract class Server {
     public void addCountryColor(String country, String color){
         countryColors.put(country,color);
     }
+    public void setMessage(String message){
+        countryColors.put("extra", message);
+    }
 
     public boolean removeCountryColor(String country){
         if (!countryColors.containsKey(country))
@@ -74,6 +86,32 @@ public abstract class Server {
     public boolean isColored(String country){
         return countryColors.containsKey(country);
     }
+
+    public class MessageHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+
+            System.out.println("BRO WHAT");
+            if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(405, -1); // Method Not Allowed
+                return;
+            }
+
+            String jsonResponse;
+            synchronized (messageQueue) {
+                jsonResponse = mapToJSON(Collections.singletonMap("messages", String.join(";;", messageQueue)));
+                messageQueue.clear(); // Clear messages after sending
+            }
+
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            byte[] responseBytes = jsonResponse.getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, responseBytes.length);
+            try (OutputStream os = exchange.getResponseBody()) {
+                os.write(responseBytes);
+            }
+        }
+    }
+
 
     // Main route where the index.html is served
     static class DefaultRoute implements HttpHandler {
