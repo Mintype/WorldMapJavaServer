@@ -91,7 +91,6 @@ public abstract class Server {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
 
-            System.out.println("BRO WHAT");
             if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
                 exchange.sendResponseHeaders(405, -1); // Method Not Allowed
                 return;

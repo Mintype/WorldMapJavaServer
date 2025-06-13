@@ -10,11 +10,10 @@ public class StudentCode extends Server{
 
     @Override
     public void getInputCountries(String country1, String country2) {
-        System.out.println("hii");
-        sendMessageToUser("The shortest path has been calculated.");
-        addCountryColor(country1, "red");
-        addCountryColor(country2, "blue");
-        setMessage("hello");
+//        sendMessageToUser("The shortest path has been calculated.");
+//        addCountryColor(country1, "red");
+//        addCountryColor(country2, "blue");
+//        setMessage("hello");
     }
 
     @Override
